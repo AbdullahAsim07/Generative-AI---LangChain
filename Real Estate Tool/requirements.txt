@@ -1,0 +1,10 @@
+python_dotenv
+streamlit
+unstructured
+tiktoken
+langchain-chroma
+langchain-community
+langchain-groq
+langchain-text-splitters
+langchain-huggingface
+langchain-classic

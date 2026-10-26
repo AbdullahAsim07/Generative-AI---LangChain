@@ -1,0 +1,4 @@
+**/Real Estate Tool/.venv/
+**/__pycache__/
+**/.env
+*.pyc

@@ -1,0 +1,20 @@
+[project]
+name = "Real Estate Tool"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Abdullah Asim", email = "abdullahasimoffical4737@gmail.com" }
+]
+requires-python = ">=3.11,<3.14"
+dependencies = []
+
+[project.scripts]
+# Is tarah se theek karein:
+"Real Estate Tool" = "Real Estate Tool:main"
+
+
+[build-system]
+requires = ["uv-build>=0.13.4,<0.14.0"]
+build-backend = "uv_build"
+
