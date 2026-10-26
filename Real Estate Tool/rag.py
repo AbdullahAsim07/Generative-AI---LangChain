@@ -1,20 +1,17 @@
-# from uiuid jo jab bhi koi action perform hoga toh us ko aik id deti hai
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 from uuid import uuid4
 import os
-# jab bhi ap na path lene ka liye us e hota hai
 from pathlib import Path
-# ager ap na chain ko chain sa jorna hai toh retterival use hota hai
-from langchain_classic.chains import RetrievalQAWithSourcesChain
-# yeh document loader ka liye use hota hai 
-from langchain_classic.schema import BaseRetriever
-from langchain_community.document_loaders import UnstructuredURLLoader
-# yeh text splitter ka liye 
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-# yeh chroma kaliye 
-from langchain_chroma import Chroma
-from langchain_groq import ChatGroq
-from langchain_huggingface import HuggingFaceEmbeddings
 
+# Sahi chain import jo bina source metadata errors ke kaam karegi
+from langchain_classic.chains import RetrievalQA
+from langchain_unstructured import UnstructuredLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_chroma import Chroma
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_huggingface import HuggingFaceEmbeddings
 
 def load_dotenv():
     """Load KEY=VALUE entries from a .env file beside this script."""
@@ -32,81 +29,99 @@ def load_dotenv():
         if key:
             os.environ.setdefault(key, value)
 
-
 load_dotenv()
 
-# contraints
-# ap hum na batana hai ka chunks ka size kitna hoo
-CHUNK_SIZE=1000
-EMBEEDING_MODEL="sentence-transformers/all-MiniLM-L6-v2"
-VECTORSTORE_DIR=Path(__file__).parent / "resources/vectorstore"
-COLLECTION_NAME="realstatetool"
-llm=None
-vector_store=None
-# is ma total 3 function hoo ga sab sa pehle initialize , phir process aur genrate  hoo ga
-# sab sa pehle intialize ka hoo ga 
+# Constraints
+CHUNK_SIZE = 1000
+EMBEEDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+VECTORSTORE_DIR = Path(__file__).parent / "resources/vectorstore"
+COLLECTION_NAME = "realstatetool"
+llm = None
+vector_store = None
+
 def initialize_components():
-   # dono ma sa kesi aik ma sa dekhe ga
-   global llm, vector_store
-   # ager llm none nhi hai toh is ma sa dekho
-   if llm is None:
-      llm = ChatGroq(model=" llama-3.1-8b-instant", temperature=0.2, max_tokens=300)
-   # ager us ko mil llm sa toh theek hai phir embedd kare ga ager nhi mil toh wo is ko vector store ma dekhe ga
-   if vector_store is None:
-      ef = HuggingFaceEmbeddings(
-         model_name=EMBEEDING_MODEL,
-         model_kwargs={"trust_remote_code": True},
-      )
-      vector_store = Chroma(
-         collection_name=COLLECTION_NAME,
-         embedding_function=ef,
-         persist_directory=str(VECTORSTORE_DIR),
-      )
+    global llm, vector_store
+    
+    # 🛠️ FIX 1: Stable deployment configuration framework standard mapping
+    if llm is None:
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-2.5-flash-latest",  # Sub-dependency mapping standard fallback ID
+            temperature=0.2,
+            google_api_key=os.getenv("GOOGLE_API_KEY")
+        )
+        
+    if vector_store is None:
+        ef = HuggingFaceEmbeddings(
+            model_name=EMBEEDING_MODEL,
+            model_kwargs={"trust_remote_code": True},
+        )
+        vector_store = Chroma(
+            collection_name=COLLECTION_NAME,
+            embedding_function=ef,
+            persist_directory=str(VECTORSTORE_DIR),
+        )
 
 def process_urls(urls):
     """
-    This function scrapes data from URLs and stores it in a vector database.
-    :param urls: input URLs
+    This function scrapes data from dynamic input URLs and stores it in Chroma DB.
+    :param urls: list of input URLs from Streamlit inputs
     """
-    # sab sa pehle initialize karo 
-    yield "Initializing Components"
+    yield "Initializing Components..."
     initialize_components()
-    # vectorstore ki collection ko reset karo 
+    
     yield "Resetting vectorStore ...."
     vector_store.reset_collection()
-    # unstructured url ko load karo aur data ma save karo 
-    yield "Loading data ..."
-    loader = UnstructuredURLLoader(urls=urls)
-    data = loader.load()
-    # text ko recursive texte spliiter ka use sa chunks ma diviude karo 
-    yield "Split text into chunks"
+    
+    yield "Loading data from input URLs..."
+    all_docs = []
+    
+    # User ke diye gaye har link ko iterate karke dynamic scrap karein
+    for url in urls:
+        if url.strip():
+            try:
+                # 🛠️ FIX 2: Strategy change to handle direct serverless web loaders
+                loader = UnstructuredLoader(
+                    web_url=url.strip(),
+                    strategy="fast"
+                )
+                all_docs.extend(loader.load())
+            except Exception as e:
+                yield f"Warning: Failed to load {url} due to error: {str(e)}"
+
+    if not all_docs:
+        yield "Error: No valid data could be retrieved from the provided URLs."
+        return
+
+    yield "Split text into chunks..."
     text_splitter = RecursiveCharacterTextSplitter(
         separators=["\n\n", "\n", " "],
         chunk_size=CHUNK_SIZE,
     )
-    # us ka baad saare chunks ko docs ma save karo 
-    docs = text_splitter.split_documents(data)
+    docs = text_splitter.split_documents(all_docs)
 
-    yield "Add chunks to vector database"
+    yield "Add chunks to vector database..."
     uuids = [str(uuid4()) for _ in range(len(docs))]
     vector_store.add_documents(documents=docs, ids=uuids)
-    yield "Done adding docs in vector database ..."
+    yield "Done adding docs in vector database!"
 
 def generate_answer(query):
-    # ager vector store ma quwey ka nawer nhi para hua hai toh llm phir bhi answer dega
+    global llm
     if vector_store is None:
-        raise RuntimeError("vector database is not initialized")
+        raise RuntimeError("Vector database is not initialized")
 
-    # initialize llm if needed
     if llm is None:
         initialize_components()
-
-    # ager vector store ma data nhi para hua hai toh wo chain ka zariye retrieval sources llm sa call kar dega 
-    chain = RetrievalQAWithSourcesChain.from_llm(
+     
+    # 🛠️ FIX 3: Custom map instructions standard parsing bypass config
+    chain = RetrievalQA.from_chain_type(
         llm=llm,
+        chain_type="stuff",
         retriever=vector_store.as_retriever(),
+        input_key="query"
     )
-    result=chain.invoke({"question":query},return_only_output=True)
-    # jo answer ma source ay ga us ko wo apka answer hoo ga
-    sources = result.get("sources", "")
-    return result["answer"], sources
+    
+    # Query execute karein
+    result = chain.invoke({"query": query})
+    
+    # Return output string
+    return result.get("result", "No answer generated.")

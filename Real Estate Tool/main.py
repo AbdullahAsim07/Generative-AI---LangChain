@@ -21,13 +21,17 @@ if process_url_button:
 query = placeholder.text_input("Question")
 if query:
     try:
-        answer, sources = generate_answer(query)
+        result = generate_answer(query)
+        if isinstance(result, tuple):
+            answer, sources = result
+        else:
+            answer, sources = result, None
+
         st.header("Answer:")
         st.write(answer)
-
         if sources:
             st.subheader("Sources:")
             for source in sources.split("\n"):
                 st.write(source)
-    except RuntimeError as e:
+    except RuntimeError:
         placeholder.text("You must process urls first")

@@ -1,5 +1,5 @@
 [project]
-name = "Real Estate Tool"
+name = "real-estate-tool"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -7,14 +7,18 @@ authors = [
     { name = "Abdullah Asim", email = "abdullahasimoffical4737@gmail.com" }
 ]
 requires-python = ">=3.11,<3.14"
-dependencies = []
+dependencies = [
+    "langchain-google-genai>=4.4.2",
+    "langchain-huggingface>=1.2.3",
+    "langchain-unstructured>=1.0.1",
+    "torch>=2.14.1",
+    "torchvision>=0.29.1",
+]
 
 [project.scripts]
 # Is tarah se theek karein:
-"Real Estate Tool" = "Real Estate Tool:main"
+"real-estate-tool" = "real-estate-tool:main"
 
 
-[build-system]
-requires = ["uv-build>=0.13.4,<0.14.0"]
-build-backend = "uv_build"
+
 
